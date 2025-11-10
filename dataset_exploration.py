@@ -1,11 +1,35 @@
+import os
 import bz2
+import urllib.request
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 
 
 class BALDataset:
-    def __init__(self, file_path):
-        self._load_bal(file_path)
+    _DATASET_URL = "http://grail.cs.washington.edu/projects/bal/data/ladybug/"
+
+    def __init__(self, file_path: str = None):
+        # If no file path is provided, download default
+        self.file_path = Path(file_path)
+        if file_path is None or not self.file_path.exists():
+            self.download_dataset(file_name=self.file_path.name)
+        self._load_bal(self.file_path)
+
+    @staticmethod
+    def download_dataset(file_name="problem-49-7776-pre.txt.bz2"):
+        data_dir = Path("data")
+        data_dir.mkdir(exist_ok=True)
+        file_path = data_dir / file_name
+        if not file_path.exists():
+            url = BALDataset._DATASET_URL + file_name
+            print(f"Downloading {file_name} from {url}...")
+            urllib.request.urlretrieve(url, file_path)
+            print("Download complete.")
+        else:
+            print(f"File {file_name} already exists, skipping download.")
+        return
 
     def _load_bal(self, file_path):
         with bz2.open(file_path, "rt") as file:
