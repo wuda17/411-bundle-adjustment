@@ -48,13 +48,7 @@ class BALDataset:
         }
 
 
-# -------------------------------
-# Visualization
-# -------------------------------
-import matplotlib.pyplot as plt
-import numpy as np
-
-
+# TODO: fix
 def visualize_scene(points_3d, camera_params, num_points=10_000):
     """
     Visualize 3D points and camera positions from a BAL dataset.
