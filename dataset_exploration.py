@@ -10,10 +10,10 @@ import matplotlib.pyplot as plt
 class BALDataset:
     _DATASET_URL = "http://grail.cs.washington.edu/projects/bal/data/ladybug/"
 
-    def __init__(self, file_path: str = None):
+    def __init__(self, file_path: str):
         # If no file path is provided, download default
         self.file_path = Path(file_path)
-        if file_path is None or not self.file_path.exists():
+        if not self.file_path.exists():
             self.download_dataset(file_name=self.file_path.name)
         self._load_bal(self.file_path)
 
