@@ -65,10 +65,31 @@ class BALDataset:
             self.points_3d = points_3d.reshape((n_points, 3))
 
     def get_properties(self):
+        """
+        Returns dataset properties including:
+        - Number of cameras
+        - Number of 3D points
+        - Number of observations
+        - Total number of parameters (for optimization)
+        - Total number of residuals
+        """
+        n_cameras = self.camera_params.shape[0]
+        n_points = self.points_3d.shape[0]
+
+        # Total parameters for bundle adjustment:
+        # 9 parameters per camera (rotation + translation + intrinsics)
+        # 3 parameters per 3D point
+        n = 9 * n_cameras + 3 * n_points
+
+        # Total residuals = 2 * number of 2D observations
+        m = 2 * self.points_2d.shape[0]
+
         return {
-            "n_cameras": self.n_cameras,
-            "n_points": self.n_points,
+            "n_cameras": n_cameras,
+            "n_points": n_points,
             "n_observations": self.n_observations,
+            "total_parameters": n,
+            "total_residuals": m,
         }
 
 
