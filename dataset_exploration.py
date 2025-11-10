@@ -1,43 +1,44 @@
-import os
+import bz2
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 
 class BALDataset:
-    """
-    Pure NumPy loader for Bundle Adjustment in the Large (BAL) dataset.
-    """
-
-    def __init__(self, folder_name):
-        file_path = os.path.join("data", folder_name)
+    def __init__(self, file_path):
         self._load_bal(file_path)
 
     def _load_bal(self, file_path):
-        with open(file_path, "r") as f:
-            header = f.readline().strip().split()
-            self.n_cameras = int(header[0])
-            self.n_points = int(header[1])
-            self.n_observations = int(header[2])
+        with bz2.open(file_path, "rt") as file:
+            # Header
+            n_cameras, n_points, n_observations = map(int, file.readline().split())
+            self.n_cameras = n_cameras
+            self.n_points = n_points
+            self.n_observations = n_observations
 
-            # Observations: cam_idx, pt_idx, x, y
-            obs = []
-            for _ in range(self.n_observations):
-                cam_idx, pt_idx, x, y = f.readline().strip().split()
-                obs.append([int(cam_idx), int(pt_idx), float(x), float(y)])
-            self.observations = np.array(obs)
+            # Observations
+            camera_indices = np.empty(n_observations, dtype=int)
+            point_indices = np.empty(n_observations, dtype=int)
+            points_2d = np.empty((n_observations, 2), dtype=np.float64)
+            for i in range(n_observations):
+                cam_idx, pt_idx, x, y = file.readline().split()
+                camera_indices[i] = int(cam_idx)
+                point_indices[i] = int(pt_idx)
+                points_2d[i] = [float(x), float(y)]
+            self.camera_indices = camera_indices
+            self.point_indices = point_indices
+            self.points_2d = points_2d
 
-            # Camera parameters: rotation(3), translation(3), intrinsics(3)
-            cams = []
-            for _ in range(self.n_cameras):
-                cams.append(list(map(float, f.readline().strip().split())))
-            self.camera_params = np.array(cams)
+            # Camera parameters
+            camera_params = np.empty(n_cameras * 9, dtype=np.float64)
+            for i in range(n_cameras * 9):
+                camera_params[i] = float(file.readline())
+            self.camera_params = camera_params.reshape((n_cameras, 9))
 
             # 3D points
-            pts = []
-            for _ in range(self.n_points):
-                pts.append(list(map(float, f.readline().strip().split())))
-            self.points_3d = np.array(pts)
+            points_3d = np.empty(n_points * 3, dtype=np.float64)
+            for i in range(n_points * 3):
+                points_3d[i] = float(file.readline())
+            self.points_3d = points_3d.reshape((n_points, 3))
 
     def get_properties(self):
         return {
@@ -48,68 +49,56 @@ class BALDataset:
 
 
 # -------------------------------
-# Reprojection and Optimization
-# -------------------------------
-def rodrigues_rotate_point(rvec, point):
-    """Rotate 3D point using Rodrigues vector (axis-angle)."""
-    theta = np.linalg.norm(rvec)
-    if theta == 0:
-        return point
-    k = rvec / theta
-    p = point
-    return (
-        p * np.cos(theta)
-        + np.cross(k, p) * np.sin(theta)
-        + k * np.dot(k, p) * (1 - np.cos(theta))
-    )
-
-
-def project_point(X, cam):
-    """Project 3D point X using camera parameters."""
-    rvec = cam[:3]
-    tvec = cam[3:6]
-    f, cx, cy = cam[6:9]
-    X_rot = rodrigues_rotate_point(rvec, X)
-    X_cam = X_rot + tvec
-    x_proj = f * (X_cam[0] / X_cam[2]) + cx
-    y_proj = f * (X_cam[1] / X_cam[2]) + cy
-    return x_proj, y_proj
-
-
-def reprojection_error(params, n_cameras, n_points, observations):
-    cameras = params[: n_cameras * 9].reshape((n_cameras, 9))
-    points = params[n_cameras * 9 :].reshape((n_points, 3))
-    residuals = []
-    for cam_idx, pt_idx, x_obs, y_obs in observations:
-        X = points[pt_idx]
-        cam = cameras[cam_idx]
-        x_proj, y_proj = project_point(X, cam)
-        residuals.extend([x_proj - x_obs, y_proj - y_obs])
-    return np.array(residuals)
-
-
-# -------------------------------
 # Visualization
 # -------------------------------
-def visualize_scene(points_3d, camera_params, num_points=1000):
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+def visualize_scene(points_3d, camera_params, num_points=10_000):
+    """
+    Visualize 3D points and camera positions from a BAL dataset.
+
+    Coordinate system notes:
+    - points_3d: right-handed world coordinates (X right, Y up, Z forward)
+    - camera_params: rotation (rvec) + translation (tvec) + intrinsics
+    - For visualization, we flip the Y-axis to match typical 3D plotting convention.
+    - Camera positions are shown at tvec (world frame)
+    """
     fig = plt.figure(figsize=(10, 7))
     ax = fig.add_subplot(111, projection="3d")
 
-    pts = points_3d
+    # Subsample points if dataset is large
+    pts = points_3d.copy()
     if pts.shape[0] > num_points:
         indices = np.random.choice(pts.shape[0], num_points, replace=False)
         pts = pts[indices]
 
-    ax.scatter(pts[:, 0], pts[:, 1], pts[:, 2], s=1, c="b", label="3D Points")
+    # Flip Y-axis for standard 3D visualization
+    pts[:, 1] *= -1
 
-    cams = camera_params[:, 3:6]  # camera positions (translation)
+    # Plot 3D points
     ax.scatter(
-        cams[:, 0], cams[:, 1], cams[:, 2], s=20, c="r", marker="^", label="Cameras"
+        pts[:, 0], pts[:, 1], pts[:, 2], s=1, c="b", label="3D Points (world frame)"
     )
 
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
+    # Camera positions: translation vector in world coordinates
+    cams = camera_params[:, 3:6].copy()
+    cams[:, 1] *= -1  # flip Y-axis same as points
+    ax.scatter(
+        cams[:, 0],
+        cams[:, 1],
+        cams[:, 2],
+        s=20,
+        c="r",
+        marker="^",
+        label="Cameras (world frame)",
+    )
+
+    ax.set_xlabel("X (right)")
+    ax.set_ylabel("Y (up)")
+    ax.set_zlabel("Z (forward)")
+    ax.set_title("3D Scene Reconstruction (BAL Dataset)")
     ax.legend()
     plt.show()
 
@@ -118,19 +107,8 @@ def visualize_scene(points_3d, camera_params, num_points=1000):
 # Example usage
 # -------------------------------
 if __name__ == "__main__":
-    folder_name = "problem-49-7776-pre.txt"  # adjust path
-    dataset = BALDataset(folder_name)
+    dataset = BALDataset("data/problem-49-7776-pre.txt.bz2")
     print(dataset.get_properties())
-
-    # Flatten all parameters for optimization
-    x0 = np.hstack([dataset.camera_params.ravel(), dataset.points_3d.ravel()])
-
-    # Visualize initial scene
+    print("Points shape:", dataset.points_3d.shape)
+    print("Camera params shape:", dataset.camera_params.shape)
     visualize_scene(dataset.points_3d, dataset.camera_params)
-
-    # Example: Run optimization with scipy (optional)
-    # from scipy.optimize import least_squares
-    # result = least_squares(reprojection_error, x0, args=(dataset.n_cameras, dataset.n_points, dataset.observations))
-    # optimized_cameras = result.x[:dataset.n_cameras*9].reshape((dataset.n_cameras,9))
-    # optimized_points = result.x[dataset.n_cameras*9:].reshape((dataset.n_points,3))
-    # visualize_scene(optimized_points, optimized_cameras)
