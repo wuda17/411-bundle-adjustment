@@ -1,0 +1,13 @@
+name: 411-bundle-adjustment
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy
+  - scipy
+  - matplotlib
+  - open3d
+  - pip
+  - pip:
+      -  # Additional pip packages can be added here if needed
