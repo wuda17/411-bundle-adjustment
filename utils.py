@@ -7,7 +7,7 @@ import open3d as o3d
 
 
 class BALDataset:
-    _DATASET_URL = "http://grail.cs.washington.edu/projects/bal/data/venice/"
+    _DATASET_URL = "http://grail.cs.washington.edu/projects/bal/data/ladybug/"
 
     def __init__(self, file_path: str):
         # If no file path is provided, download default

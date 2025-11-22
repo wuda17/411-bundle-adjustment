@@ -9,5 +9,6 @@ dependencies:
   - matplotlib
   - open3d
   - pip
+  - psutil
   - pip:
       -  # Additional pip packages can be added here if needed

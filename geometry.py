@@ -31,14 +31,3 @@ def project(points, camera_params):
     r = 1 + k1 * n + k2 * n**2
     points_proj *= (r * f)[:, np.newaxis]
     return points_proj
-
-
-def fun(params, n_cameras, n_points, camera_indices, point_indices, points_2d):
-    """Compute residuals.
-
-    `params` contains camera parameters and 3-D coordinates.
-    """
-    camera_params = params[: n_cameras * 9].reshape((n_cameras, 9))
-    points_3d = params[n_cameras * 9 :].reshape((n_points, 3))
-    points_proj = project(points_3d[point_indices], camera_params[camera_indices])
-    return (points_proj - points_2d).ravel()
