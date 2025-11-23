@@ -82,21 +82,44 @@ def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indice
 
 
 if __name__ == "__main__":
-    dataset = utils.BALDataset("data/problem-49-7776-pre.txt.bz2")
+    # ----------------------------------------------------------
+    # Load dataset
+    # ----------------------------------------------------------
+    dataset = utils.BALDataset(
+        "data/problem-257-65132-pre.txt.bz2", dataset_name="trafalgar"
+    )
+
     n_cameras = dataset.n_cameras
     n_points = dataset.n_points
     cam_idx = dataset.camera_indices
     pt_idx = dataset.point_indices
     points_2d = dataset.points_2d
-    camera_params, points_3d = dataset.camera_params, dataset.points_3d
+    camera_params = dataset.camera_params
+    points_3d = dataset.points_3d
+
+    print("\n=== Dataset Loaded ===")
+    print(dataset.get_properties())
+
+    # Initial parameter vector
     x0 = np.hstack((camera_params.ravel(), points_3d.ravel()))
 
+    # ----------------------------------------------------------
+    # Prepare output directory
+    # ----------------------------------------------------------
     OUTPUT_DIR = "outputs"
     if os.path.exists(OUTPUT_DIR):
         shutil.rmtree(OUTPUT_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+    # ----------------------------------------------------------
+    # Visualize BEFORE optimization
+    # ----------------------------------------------------------
+    print("\n=== Visualizing BEFORE optimization ===")
+    utils.visualize_scene(points_3d, camera_params, frustum_scale_ratio=0.01)
+
+    # ----------------------------------------------------------
     # Define experiments
+    # ----------------------------------------------------------
     experiments = [
         # Note: runs into hard numeric limit on all BAL datasets
         # {
@@ -126,13 +149,18 @@ if __name__ == "__main__":
     solver_loggers = []
     bench_loggers = []
 
+    # ---------------------------------------------------------
+    # Run experiments
+    # ---------------------------------------------------------
     for i, exp in enumerate(experiments, 1):
+
         print(f"\n=== Running Experiment {i}: {exp['label']} ===")
 
         solver_logger = SolverLogger(n_cameras, n_points, cam_idx, pt_idx)
         bench_logger = BenchmarkLogger()
         iter_counter = [0]
 
+        # ---- RUN OPTIMIZATION -------------------------------------
         res = least_squares(
             fun_with_logging,
             x0,
@@ -140,8 +168,8 @@ if __name__ == "__main__":
             verbose=2,
             x_scale="jac",
             ftol=1e-4,
-            method=exp.get("method", "trf"),
-            loss=exp.get("loss", "linear"),
+            method=exp["method"],
+            loss=exp["loss"],
             args=(
                 n_cameras,
                 n_points,
@@ -154,25 +182,40 @@ if __name__ == "__main__":
             ),
         )
 
-        # --- Print summary metrics ---
+        # ---------------------------------------------------------
+        # Print summary metrics
+        # ---------------------------------------------------------
         print("=== Solver / Problem Metrics ===")
         print(solver_logger.summary())
         print("=== Benchmarking Metrics ===")
         print(bench_logger.summary())
 
-        # --- Extract optimized parameters ---
+        # ---------------------------------------------------------
+        # Extract optimized parameters
+        # ---------------------------------------------------------
         camera_params_opt = res.x[: n_cameras * 9].reshape((n_cameras, 9))
         points_3d_opt = res.x[n_cameras * 9 :].reshape((n_points, 3))
 
-        # --- Visualize optimized 3D scene ---
-        utils.visualize_scene(points_3d_opt, camera_params_opt)
-
-        # --- Plot per-iteration metrics and save ---
-        plot_iteration_metrics(
-            solver_logger, bench_logger, experiment_number=i, label=exp["label"]
+        # ---------------------------------------------------------
+        # Visualization
+        # ---------------------------------------------------------
+        utils.visualize_scene(
+            points_3d,
+            camera_params,
+            title=f"After BA: {exp['label']}",
         )
 
-        # Store loggers for summary comparison
+        # ---------------------------------------------------------
+        # Per-iteration diagnostic plots
+        # ---------------------------------------------------------
+        plot_iteration_metrics(
+            solver_logger,
+            bench_logger,
+            experiment_number=i,
+            label=exp["label"],
+        )
+
+        # Save for comparison charts later
         solver_loggers.append(solver_logger)
         bench_loggers.append(bench_logger)
 
