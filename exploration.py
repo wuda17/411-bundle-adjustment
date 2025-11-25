@@ -114,8 +114,8 @@ if __name__ == "__main__":
     # ----------------------------------------------------------
     # Visualize BEFORE optimization
     # ----------------------------------------------------------
-    print("\n=== Visualizing BEFORE optimization ===")
-    utils.visualize_scene(points_3d, camera_params)
+    # print("\n=== Visualizing BEFORE optimization ===")
+    # utils.visualize_scene(points_3d, camera_params)
 
     # ----------------------------------------------------------
     # Define experiments
@@ -128,14 +128,14 @@ if __name__ == "__main__":
         #     "loss": "linear",
         #     "method": "trf",
         # },
-        {
-            "label": "Sparse LM",
-            "jac_sparsity": bundle_adjustment_sparsity(
-                n_cameras, n_points, cam_idx, pt_idx
-            ),
-            "loss": "linear",
-            "method": "trf",
-        },
+        # {
+        #     "label": "Sparse LM",
+        #     "jac_sparsity": bundle_adjustment_sparsity(
+        #         n_cameras, n_points, cam_idx, pt_idx
+        #     ),
+        #     "loss": "linear",
+        #     "method": "trf",
+        # },
         {
             "label": "Robust Cost",
             "jac_sparsity": bundle_adjustment_sparsity(
