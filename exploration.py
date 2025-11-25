@@ -86,7 +86,7 @@ if __name__ == "__main__":
     # Load dataset
     # ----------------------------------------------------------
     dataset = utils.BALDataset(
-        "data/problem-257-65132-pre.txt.bz2", dataset_name="trafalgar"
+        "data/problem-126-40037-pre.txt.bz2", dataset_name="trafalgar"
     )
 
     n_cameras = dataset.n_cameras
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     # Visualize BEFORE optimization
     # ----------------------------------------------------------
     print("\n=== Visualizing BEFORE optimization ===")
-    utils.visualize_scene(points_3d, camera_params, frustum_scale_ratio=0.01)
+    utils.visualize_scene(points_3d, camera_params)
 
     # ----------------------------------------------------------
     # Define experiments

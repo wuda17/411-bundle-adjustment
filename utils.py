@@ -99,122 +99,112 @@ def visualize_scene(
     points_3d,
     camera_params,
     num_points=10000,
-    frustum_scale_ratio=0.05,  # fraction of cloud bbox size
+    frustum_size=0.1,  # static constant frustum size
     title="3D Scene",
     clip_percentile=(1, 99),
-    max_frustum_distance_ratio=3.0,  # skip frustums beyond this factor of cloud bbox
+    max_frustum_distance=10.0,  # absolute cutoff (after centering)
 ):
     """
-    Visualize BAL 3D points and cameras with robust zoom and skipped far-away frustums.
-
-    Args:
-        points_3d: Nx3 array of 3D points
-        camera_params: Mx9 array [rx, ry, rz, tx, ty, tz, f, k1, k2]
-        num_points: max points to visualize
-        frustum_scale_ratio: scale of frustums relative to cloud size
-        title: window title
-        clip_percentile: clip extreme points (min%, max%) in Z
-        max_frustum_distance_ratio: skip frustums further than this times cloud bbox
+    Visualize BAL point cloud + camera frustums with a static frustum size.
+    The point cloud is centered but not scaled, so frustums remain constant.
     """
+
     pts = points_3d.copy()
 
-    # --- Clip outliers ---
+    # ---- Clip extreme Z outliers ----
     z = pts[:, 2]
     z_min, z_max = np.percentile(z, clip_percentile)
     pts = pts[(z >= z_min) & (z <= z_max)]
 
-    # --- Subsample ---
+    # ---- Subsample ----
     if pts.shape[0] > num_points:
-        rng = np.random.default_rng(seed=42)
-        idx = rng.choice(pts.shape[0], num_points, replace=False)
-        pts = pts[idx]
+        rng = np.random.default_rng(42)
+        pts = pts[rng.choice(pts.shape[0], num_points, replace=False)]
 
-    pts[:, 1] *= -1  # Flip Y
+    # Flip Y for visualization convention
+    pts[:, 1] *= -1
 
-    # --- Compute camera centers ---
+    # ---- Compute camera centers ----
     cams = []
+    rotations = []
     for cam in camera_params:
         rvec, tvec = cam[:3], cam[3:6]
         theta = np.linalg.norm(rvec)
+
         if theta < 1e-8:
             R = np.eye(3)
         else:
             v = rvec / theta
             K = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
-            R = np.eye(3) + np.sin(theta) * K + (1 - np.cos(theta)) * (K @ K)
+            R = np.eye(3) + np.sin(theta) * K + (1 - np.cos(theta)) * K @ K
+
         C = -R.T @ tvec
         C[1] *= -1
         cams.append(C)
-    cams = np.vstack(cams)
+        rotations.append(R)
 
-    # --- Center cloud only ---
+    cams = np.vstack(cams)
+    rotations = np.array(rotations)
+
+    # ---- Center scene around point cloud (not scaled) ----
     centroid = np.mean(pts, axis=0)
     pts_centered = pts - centroid
     cams_centered = cams - centroid
 
     # --- Scale cloud ---
-    bbox_size = np.max(pts_centered.max(axis=0) - pts_centered.min(axis=0))
-    pts_centered /= bbox_size
-    cams_centered /= bbox_size
-
     # --- Depth gradient coloring ---
     zc = pts_centered[:, 2]
     colors = plt.cm.viridis((zc - zc.min()) / (zc.max() - zc.min()))[:, :3]
 
+    # Create point cloud geometry
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(pts_centered)
     pcd.colors = o3d.utility.Vector3dVector(colors)
 
-    # --- Camera frustums (skip distant ones) ---
+    # ---- Camera frustums with STATIC size ----
     frustums = []
-    frustum_size = frustum_scale_ratio
-    max_dist = max_frustum_distance_ratio  # factor of bbox
-    for i, cam in enumerate(camera_params):
+    for i, R in enumerate(rotations):
         C = cams_centered[i]
-        if np.linalg.norm(C) > max_dist:  # skip far frustums
+
+        # Skip outlier cameras
+        if np.linalg.norm(C) > max_frustum_distance:
             continue
 
-        rvec, tvec = cam[:3], cam[3:6]
-        theta = np.linalg.norm(rvec)
-        if theta < 1e-8:
-            R = np.eye(3)
-        else:
-            v = rvec / theta
-            K = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
-            R = np.eye(3) + np.sin(theta) * K + (1 - np.cos(theta)) * (K @ K)
-
-        # Frustum corners
-        width = height = 0.1 * frustum_size
+        # Frustum corners (constant size)
+        w = h = 0.5 * frustum_size
         zf = frustum_size
-        corners = np.array(
+
+        corners_cam = np.array(
             [
-                [width, height, zf],
-                [width, -height, zf],
-                [-width, -height, zf],
-                [-width, height, zf],
+                [w, h, zf],
+                [w, -h, zf],
+                [-w, -h, zf],
+                [-w, h, zf],
             ]
         )
-        corners_world = (R.T @ corners.T).T + C
 
+        # Transform to world
+        corners_world = (R.T @ corners_cam.T).T + C
+
+        # Lines from center to corners + between corners
         points = np.vstack([C, corners_world])
         lines = [[0, 1], [0, 2], [0, 3], [0, 4], [1, 2], [2, 3], [3, 4], [4, 1]]
-        line_set = o3d.geometry.LineSet()
-        line_set.points = o3d.utility.Vector3dVector(points)
-        line_set.lines = o3d.utility.Vector2iVector(lines)
-        line_set.colors = o3d.utility.Vector3dVector([[1, 0, 0]] * len(lines))
-        frustums.append(line_set)
 
-    # --- Visualizer ---
+        ls = o3d.geometry.LineSet()
+        ls.points = o3d.utility.Vector3dVector(points)
+        ls.lines = o3d.utility.Vector2iVector(lines)
+        ls.colors = o3d.utility.Vector3dVector([[1, 0, 0]] * len(lines))
+
+        frustums.append(ls)
+
+    # ---- Visualization ----
     vis = o3d.visualization.Visualizer()
     vis.create_window(window_name=title)
     vis.add_geometry(pcd)
     for f in frustums:
         vis.add_geometry(f)
 
-    # Optional: small coordinate frame
-    # vis.add_geometry(o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.05))
-
-    # --- Set view ---
+    # View settings
     vis.poll_events()
     vis.update_renderer()
     ctr = vis.get_view_control()
