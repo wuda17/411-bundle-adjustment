@@ -1,0 +1,22 @@
+=== Dataset Loaded ===
+{'n_cameras': 126, 'n_points': 40037, 'n_observations': 148328, 'total_parameters': 121245, 'total_residuals': 296656}
+
+=== Running Experiment 1: Sparse LM ===
+   Iteration     Total nfev        Cost      Cost reduction    Step norm     Optimality   
+       0              1         1.5081e+07                                    1.45e+08    
+       1              2         1.9116e+05      1.49e+07       5.45e+06       4.73e+07    
+       2              3         1.5500e+05      3.62e+04       6.71e+06       2.42e+08    
+       3              4         9.5606e+04      5.94e+04       2.52e+06       7.09e+07    
+       4              5         9.1963e+04      3.64e+03       1.70e+06       1.61e+07    
+       5              6         9.1856e+04      1.07e+02       3.89e+06       1.43e+07    
+       6              7         9.1799e+04      5.63e+01       2.65e+05       8.65e+05    
+       7              8         9.1796e+04      3.69e+00       5.09e+05       6.62e+04    
+`ftol` termination condition is satisfied.
+Function evaluations 8, initial cost 1.5081e+07, final cost 9.1796e+04, first-order optimality 6.62e+04.
+=== Solver / Problem Metrics ===
+{'final_cost': np.float64(91795.52743037665), 'residual_norm': np.float64(428.47526750181663), 'grad_norm': None, 'step_norm': None, 'mean_cam_error': np.float64(0.6705949869217469), 'median_cam_error': np.float64(0.652065902281841), 'max_cam_error': np.float64(1.7712968013540942), 'mean_pt_error': np.float64(0.5784116999579507), 'median_pt_error': np.float64(0.4098679064568362), 'max_pt_error': np.float64(14.901064474197259)}
+=== Benchmarking Metrics ===
+{'total_runtime': 3.6412839889526367, 'total_jacobian_time': 0, 'peak_memory_mb': 1526.398976}
+Traceback (most recent call last):
+  File "/Users/Omega/dev/411-project/exploration.py", line 157, in <module>
+    print(f"\n=== Running Experiment {i}: {exp['label']} ===")
