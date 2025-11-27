@@ -51,8 +51,8 @@ def fun_with_logging(
     J = None
     jac_time = None
 
-    # Log metrics
-    solver_logger.log_iteration(iter_counter[0], params, residuals, J)
+    # Log metrics (new SolverLogger API expects `iteration, residuals, ...`)
+    solver_logger.log_iteration(iter_counter[0], residuals, J=J)
     bench_logger.log_iteration(iter_counter[0], iteration_time, jac_time)
 
     iter_counter[0] += 1
@@ -128,14 +128,14 @@ if __name__ == "__main__":
         #     "loss": "linear",
         #     "method": "trf",
         # },
-        # {
-        #     "label": "Sparse LM",
-        #     "jac_sparsity": bundle_adjustment_sparsity(
-        #         n_cameras, n_points, cam_idx, pt_idx
-        #     ),
-        #     "loss": "linear",
-        #     "method": "trf",
-        # },
+        {
+            "label": "Sparse LM",
+            "jac_sparsity": bundle_adjustment_sparsity(
+                n_cameras, n_points, cam_idx, pt_idx
+            ),
+            "loss": "linear",
+            "method": "trf",
+        },
         {
             "label": "Robust Cost",
             "jac_sparsity": bundle_adjustment_sparsity(
@@ -199,11 +199,11 @@ if __name__ == "__main__":
         # ---------------------------------------------------------
         # Visualization
         # ---------------------------------------------------------
-        utils.visualize_scene(
-            points_3d,
-            camera_params,
-            title=f"After BA: {exp['label']}",
-        )
+        # utils.visualize_scene(
+        #     points_3d,
+        #     camera_params,
+        #     title=f"After BA: {exp['label']}",
+        # )
 
         # ---------------------------------------------------------
         # Per-iteration diagnostic plots

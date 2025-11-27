@@ -10,5 +10,6 @@ dependencies:
   - open3d
   - pip
   - psutil
+  - pandas
   - pip:
       -  # Additional pip packages can be added here if needed
